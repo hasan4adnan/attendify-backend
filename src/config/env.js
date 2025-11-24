@@ -84,10 +84,10 @@ module.exports = {
 
   // Future Email settings
   email: {
-    // host: process.env.EMAIL_HOST,
-    // user: process.env.EMAIL_USER,
-    // password: process.env.EMAIL_PASSWORD,
-    // port: parseInt(process.env.EMAIL_PORT) || 587,
-    // from: process.env.EMAIL_FROM,
+    host: process.env.EMAIL_HOST,
+    user: process.env.EMAIL_USER,
+    password: process.env.EMAIL_PASSWORD,
+    port: parseInt(process.env.EMAIL_PORT) || 587,
+    from: process.env.EMAIL_FROM,
   },
 };

@@ -138,9 +138,55 @@ async function login(req, res, next) {
   }
 }
 
+/**
+ * Resend verification code to user's email
+ * 
+ * POST /api/auth/resend-verification
+ * 
+ * Request body: { email }
+ */
+async function resendVerificationCode(req, res, next) {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+    
+    const result = await authService.resendVerificationCode(email);
+    
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      verificationCode: result.verificationCode, // Remove in production - only for development
+    });
+  } catch (error) {
+    // Handle specific errors
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    if (error.statusCode === 400) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    next(error);
+  }
+}
+
 module.exports = {
   register,
   verifyEmail,
   login,
+  resendVerificationCode,
 };
 

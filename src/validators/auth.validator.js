@@ -103,9 +103,24 @@ const validateVerifyEmail = [
   handleValidationErrors,
 ];
 
+/**
+ * Resend verification code request validation rules
+ * 
+ * Validates: email
+ */
+const validateResendVerification = [
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
+  handleValidationErrors,
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
   validateVerifyEmail,
+  validateResendVerification,
 };
 

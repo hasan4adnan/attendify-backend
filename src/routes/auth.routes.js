@@ -6,6 +6,7 @@
  * Routes:
  *   POST /api/auth/register - Register a new user
  *   POST /api/auth/verify-email - Verify email with code
+ *   POST /api/auth/resend-verification - Resend verification code
  *   POST /api/auth/login - Login with email and password
  * 
  * Usage:
@@ -16,7 +17,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
-const { validateRegister, validateLogin, validateVerifyEmail } = require('../validators/auth.validator');
+const { validateRegister, validateLogin, validateVerifyEmail, validateResendVerification } = require('../validators/auth.validator');
 
 /**
  * POST /api/auth/register
@@ -29,6 +30,12 @@ router.post('/register', validateRegister, authController.register);
  * Verify email address with verification code
  */
 router.post('/verify-email', validateVerifyEmail, authController.verifyEmail);
+
+/**
+ * POST /api/auth/resend-verification
+ * Resend verification code to user's email
+ */
+router.post('/resend-verification', validateResendVerification, authController.resendVerificationCode);
 
 /**
  * POST /api/auth/login

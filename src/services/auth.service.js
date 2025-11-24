@@ -13,6 +13,7 @@ const userModel = require('../models/user.model');
 const verificationService = require('./verification.service');
 const hashUtil = require('../utils/hash');
 const jwtUtil = require('../utils/jwt');
+const emailUtil = require('../utils/email');
 
 /**
  * Register a new user
@@ -101,6 +102,19 @@ async function login(email, password) {
     role: user.role,
   });
   
+  // Send login notification email (non-blocking)
+  try {
+    const loginTime = new Date().toLocaleString();
+    await emailUtil.sendLoginNotificationEmail(
+      user.email, 
+      `${user.name} ${user.surname}`.trim() || user.name,
+      loginTime
+    );
+  } catch (error) {
+    // Log error but don't fail login if email fails
+    console.error('Failed to send login notification email:', error);
+  }
+  
   return {
     user: {
       id: user.user_id,
@@ -138,12 +152,54 @@ async function verifyEmail(email, code) {
   // If you add a verified column to user table later, update it here:
   // await userModel.updateUser(user.user_id, { verified: true });
   
+  // Send welcome email after successful verification
+  try {
+    await emailUtil.sendWelcomeEmail(user.email, `${user.name} ${user.surname}`.trim() || user.name);
+  } catch (error) {
+    // Log error but don't fail verification if email fails
+    console.error('Failed to send welcome email:', error);
+  }
+  
   return { message: 'Email successfully verified.' };
+}
+
+/**
+ * Resend verification code to user's email
+ * 
+ * @param {string} email - User's email
+ * @returns {Promise<Object>} Success message and verification code (for development)
+ */
+async function resendVerificationCode(email) {
+  // Find user by email
+  const user = await userModel.findUserByEmail(email);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  
+  // Check if user is already verified
+  const verificationModel = require('../models/userVerification.model');
+  const hasVerified = await verificationModel.hasConsumedVerification(user.user_id, 'signup');
+  if (hasVerified) {
+    const error = new Error('Email is already verified');
+    error.statusCode = 400;
+    throw error;
+  }
+  
+  // Send new verification code
+  const verificationCode = await verificationService.sendVerificationCode(user.user_id, 'signup');
+  
+  return {
+    message: 'Verification code has been sent to your email.',
+    verificationCode, // Return code for development (remove in production)
+  };
 }
 
 module.exports = {
   register,
   login,
   verifyEmail,
+  resendVerificationCode,
 };
 
