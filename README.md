@@ -29,10 +29,10 @@ Backend API for **Attendify** - A Smart Attendance System using facial recogniti
    ```bash
    npm run dev
    ```
-   The server will start on `http://localhost:3000` (or the port specified in `.env`).
+   The server will start on `http://localhost:3001` (or the port specified in `.env`).
 
 5. **Test the server:**
-   Visit `http://localhost:3000/health` in your browser or use Postman/curl.
+   Visit `http://localhost:3001/health` in your browser or use Postman/curl.
 
 ## 📁 Project Structure
 
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS `user_verification` (
 
 2. Edit `.env` and set the following values:
    ```env
-   PORT=3000
+   PORT=3001
    NODE_ENV=development
    
    DB_HOST=localhost
@@ -231,7 +231,7 @@ CREATE TABLE IF NOT EXISTS `user_verification` (
    ```
    ✅ Database connection established
    📊 Connected to database: ATTENDIFY on localhost:3306
-   🚀 Attendify Backend server running on port 3000
+   🚀 Attendify Backend server running on port 3001
    ```
 
 4. If you see an error, check:
