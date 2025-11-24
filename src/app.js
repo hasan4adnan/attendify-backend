@@ -16,6 +16,7 @@ const config = require('./config/env');
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const studentRoutes = require('./routes/student.routes');
+const courseRoutes = require('./routes/course.routes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -36,6 +37,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/courses', courseRoutes);
 
 // 404 handler for undefined routes
 app.use((req, res) => {

@@ -48,7 +48,18 @@ async function createStudent(studentData) {
     throw error;
   }
   
-  // Create student in database
+  // Validate courses exist BEFORE creating the student
+  if (courseIds && courseIds.length > 0) {
+    const validation = await studentModel.validateCoursesExist(courseIds);
+    if (!validation.isValid) {
+      const error = new Error(`One or more courses do not exist: ${validation.missingCourseIds.join(', ')}`);
+      error.statusCode = 404;
+      error.missingCourseIds = validation.missingCourseIds;
+      throw error;
+    }
+  }
+  
+  // Create student in database (only if validation passed)
   const newStudent = await studentModel.createStudent({
     name: name,
     surname: surname,
@@ -59,7 +70,7 @@ async function createStudent(studentData) {
     created_by: createdBy || null,
   });
   
-  // Associate student with courses if provided
+  // Associate student with courses if provided (validation already passed)
   if (courseIds && courseIds.length > 0) {
     await studentModel.addStudentToCourses(newStudent.student_id, courseIds);
   }
@@ -210,6 +221,17 @@ async function updateStudent(studentId, updateData) {
     }
   }
   
+  // Validate courses exist BEFORE updating the student (if courses are being updated)
+  if (courseIds !== undefined && courseIds.length > 0) {
+    const validation = await studentModel.validateCoursesExist(courseIds);
+    if (!validation.isValid) {
+      const error = new Error(`One or more courses do not exist: ${validation.missingCourseIds.join(', ')}`);
+      error.statusCode = 404;
+      error.missingCourseIds = validation.missingCourseIds;
+      throw error;
+    }
+  }
+  
   // Prepare update data
   const updateFields = {};
   if (name !== undefined) updateFields.name = name;
@@ -220,10 +242,10 @@ async function updateStudent(studentId, updateData) {
   if (photoPath !== undefined) updateFields.photo_path = photoPath;
   if (createdBy !== undefined) updateFields.created_by = createdBy;
   
-  // Update student
+  // Update student (only if validation passed)
   const updatedStudent = await studentModel.updateStudent(studentId, updateFields);
   
-  // Update course associations if provided (replace all with new list)
+  // Update course associations if provided (validation already passed)
   if (courseIds !== undefined) {
     await studentModel.replaceStudentCourses(studentId, courseIds);
   }

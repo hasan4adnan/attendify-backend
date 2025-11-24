@@ -333,11 +333,20 @@ async function replaceStudentCourses(studentId, courseIds) {
  * Get courses for a student
  * 
  * @param {number} studentId - Student ID
- * @returns {Promise<Array>} Array of course objects
+ * @returns {Promise<Array>} Array of course objects with all COURSE table fields
  */
 async function getStudentCourses(studentId) {
   const sql = `
-    SELECT c.course_id, c.course_name, c.course_code, sc.created_at
+    SELECT 
+      c.course_id, 
+      c.course_name, 
+      c.course_code, 
+      c.description, 
+      c.weekly_hours, 
+      c.academic_year, 
+      c.course_category, 
+      c.instructor_id,
+      sc.created_at
     FROM COURSE c
     INNER JOIN STUDENT_COURSE sc ON c.course_id = sc.course_id
     WHERE sc.student_id = ?
