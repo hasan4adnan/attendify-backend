@@ -23,7 +23,7 @@ const config = require('../config/env');
  */
 async function createVerificationCode(userId, codeHash, purpose, deliveryChannel = 'email') {
   const sql = `
-    INSERT INTO user_verification 
+    INSERT INTO USER_VERIFICATION 
     (user_id, purpose, code_hash, delivery_channel, expires_at, attempt_count, created_at)
     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), 0, NOW())
   `;
@@ -40,7 +40,7 @@ async function createVerificationCode(userId, codeHash, purpose, deliveryChannel
   
   // Fetch the created record to return complete data
   const [rows] = await db.pool.execute(
-    'SELECT * FROM user_verification WHERE verification_id = ?',
+    'SELECT * FROM USER_VERIFICATION WHERE verification_id = ?',
     [result.insertId]
   );
   
@@ -58,7 +58,7 @@ async function findActiveVerificationByUserAndPurpose(userId, purpose) {
   const sql = `
     SELECT verification_id, user_id, purpose, code_hash, delivery_channel, 
            expires_at, consumed_at, attempt_count, created_at
-    FROM user_verification
+    FROM USER_VERIFICATION
     WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL AND expires_at > NOW()
     ORDER BY created_at DESC
     LIMIT 1
@@ -76,7 +76,7 @@ async function findActiveVerificationByUserAndPurpose(userId, purpose) {
  */
 async function markVerificationAsConsumed(verificationId) {
   const sql = `
-    UPDATE user_verification 
+    UPDATE USER_VERIFICATION 
     SET consumed_at = NOW() 
     WHERE verification_id = ?
   `;
@@ -92,7 +92,7 @@ async function markVerificationAsConsumed(verificationId) {
  */
 async function incrementAttemptCount(verificationId) {
   const sql = `
-    UPDATE user_verification 
+    UPDATE USER_VERIFICATION 
     SET attempt_count = attempt_count + 1 
     WHERE verification_id = ?
   `;
@@ -110,7 +110,7 @@ async function incrementAttemptCount(verificationId) {
  */
 async function invalidateActiveVerifications(userId, purpose) {
   const sql = `
-    UPDATE user_verification 
+    UPDATE USER_VERIFICATION 
     SET consumed_at = NOW() 
     WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL
   `;
@@ -129,7 +129,7 @@ async function invalidateActiveVerifications(userId, purpose) {
 async function hasConsumedVerification(userId, purpose) {
   const sql = `
     SELECT verification_id
-    FROM user_verification
+    FROM USER_VERIFICATION
     WHERE user_id = ? AND purpose = ? AND consumed_at IS NOT NULL
     LIMIT 1
   `;

@@ -18,7 +18,7 @@ const ApiError = require('../utils/ApiError');
  * 
  * Extracts token from Authorization header, verifies it, and attaches user to req.user
  * 
- * TODO: Implement authentication middleware
+ * Steps:
  *   1. Extract Authorization header from req.headers.authorization
  *   2. If no header, return 401 Unauthorized
  *   3. Extract token using jwtUtil.extractTokenFromHeader
@@ -30,29 +30,50 @@ const ApiError = require('../utils/ApiError');
  */
 async function authMiddleware(req, res, next) {
   try {
-    // TODO: Implement authentication middleware
-    // const authHeader = req.headers.authorization;
-    // if (!authHeader) {
-    //   return next(new ApiError('Authorization header missing', 401));
-    // }
-    // const token = jwtUtil.extractTokenFromHeader(authHeader);
-    // if (!token) {
-    //   return next(new ApiError('Invalid token format', 401));
-    // }
-    // const payload = jwtUtil.verifyToken(token);
-    // const user = await userModel.findUserById(payload.userId);
-    // if (!user) {
-    //   return next(new ApiError('User not found', 401));
-    // }
-    // req.user = { userId: user.user_id, email: user.email, role: user.role };
-    // next();
+    // Extract Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return next(new ApiError('Authorization header missing', 401));
+    }
     
-    // Stub for now
-    next(new ApiError('authMiddleware not implemented', 501));
+    // Extract token from "Bearer <token>" format
+    const token = jwtUtil.extractTokenFromHeader(authHeader);
+    if (!token) {
+      return next(new ApiError('Invalid token format. Expected: Bearer <token>', 401));
+    }
+    
+    // Verify token and get payload
+    let payload;
+    try {
+      payload = jwtUtil.verifyToken(token);
+    } catch (error) {
+      // Handle JWT specific errors
+      if (error.name === 'TokenExpiredError') {
+        return next(new ApiError('Token expired', 401));
+      }
+      if (error.name === 'JsonWebTokenError') {
+        return next(new ApiError('Invalid token', 401));
+      }
+      throw error; // Re-throw unexpected errors
+    }
+    
+    // Find user by ID from token payload
+    const user = await userModel.findUserById(payload.userId);
+    if (!user) {
+      return next(new ApiError('User not found', 401));
+    }
+    
+    // Attach user to request object
+    req.user = { 
+      userId: user.user_id, 
+      email: user.email, 
+      role: user.role 
+    };
+    
+    // Continue to next middleware/route handler
+    next();
   } catch (error) {
-    // TODO: Handle JWT errors (expired, invalid, etc.)
-    // If error is jwt.JsonWebTokenError or jwt.TokenExpiredError, return 401
-    // Otherwise, pass to error handler
+    // Handle unexpected errors
     next(error);
   }
 }

@@ -24,7 +24,7 @@ const db = require('../config/database');
  */
 async function createUser(userData) {
   const sql = `
-    INSERT INTO user (name, surname, email, password_hash, role, created_at)
+    INSERT INTO USER (name, surname, email, password_hash, role, created_at)
     VALUES (?, ?, ?, ?, ?, NOW())
   `;
   
@@ -56,7 +56,7 @@ async function createUser(userData) {
 async function findUserByEmail(email) {
   const sql = `
     SELECT user_id, name, surname, email, password_hash, role, created_at
-    FROM user
+    FROM USER
     WHERE email = ?
   `;
   
@@ -73,7 +73,7 @@ async function findUserByEmail(email) {
 async function findUserById(userId) {
   const sql = `
     SELECT user_id, name, surname, email, password_hash, role, created_at
-    FROM user
+    FROM USER
     WHERE user_id = ?
   `;
   
