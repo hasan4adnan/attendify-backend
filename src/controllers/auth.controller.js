@@ -75,11 +75,19 @@ async function verifyEmail(req, res, next) {
     });
   } catch (error) {
     // Handle specific verification errors
-    if (error.message.includes('No active verification code') || 
-        error.message.includes('expired')) {
+    if (error.message.includes('expired') || error.expired) {
       return res.status(400).json({
         success: false,
         message: error.message,
+        hint: 'Use POST /api/auth/resend-verification to request a new code',
+      });
+    }
+    
+    if (error.message.includes('No active verification code')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        hint: 'Use POST /api/auth/resend-verification to request a new code',
       });
     }
     

@@ -138,6 +138,26 @@ async function hasConsumedVerification(userId, purpose) {
   return rows.length > 0;
 }
 
+/**
+ * Check if user has an expired (but not consumed) verification code
+ * 
+ * @param {number} userId - User ID
+ * @param {string} purpose - Purpose of verification ('signup', 'reset_password', 'mfa')
+ * @returns {Promise<Object|null>} Expired verification record or null if not found
+ */
+async function findExpiredVerificationByUserAndPurpose(userId, purpose) {
+  const sql = `
+    SELECT verification_id, user_id, purpose, expires_at, created_at
+    FROM USER_VERIFICATION
+    WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL AND expires_at <= NOW()
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  
+  const rows = await db.query(sql, [userId, purpose]);
+  return rows[0] || null;
+}
+
 module.exports = {
   createVerificationCode,
   findActiveVerificationByUserAndPurpose,
@@ -145,5 +165,6 @@ module.exports = {
   incrementAttemptCount,
   invalidateActiveVerifications,
   hasConsumedVerification,
+  findExpiredVerificationByUserAndPurpose,
 };
 

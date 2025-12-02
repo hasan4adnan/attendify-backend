@@ -187,11 +187,17 @@ async function resendVerificationCode(email) {
     throw error;
   }
   
-  // Send new verification code
+  // Check if there's an expired code (for better user messaging)
+  const expiredCode = await verificationModel.findExpiredVerificationByUserAndPurpose(user.user_id, 'signup');
+  const message = expiredCode 
+    ? 'Your previous verification code has expired. A new verification code has been sent to your email.'
+    : 'Verification code has been sent to your email.';
+  
+  // Send new verification code (this will invalidate old codes automatically)
   const verificationCode = await verificationService.sendVerificationCode(user.user_id, 'signup');
   
   return {
-    message: 'Verification code has been sent to your email.',
+    message,
     verificationCode, // Return code for development (remove in production)
   };
 }

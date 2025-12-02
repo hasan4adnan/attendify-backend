@@ -61,7 +61,18 @@ async function verifyCode(userId, code, purpose = 'signup') {
   const verification = await verificationModel.findActiveVerificationByUserAndPurpose(userId, purpose);
   
   if (!verification) {
-    throw new Error('No active verification code found, or it has expired');
+    // Check if there's an expired code to provide better error message
+    const expiredVerification = await verificationModel.findExpiredVerificationByUserAndPurpose(userId, purpose);
+    
+    if (expiredVerification) {
+      const error = new Error('Verification code has expired. Please request a new code.');
+      error.statusCode = 400;
+      error.expired = true;
+      throw error;
+    }
+    
+    // No code found at all
+    throw new Error('No active verification code found. Please request a new code.');
   }
   
   // Check if attempt count exceeds max
