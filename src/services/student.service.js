@@ -38,7 +38,7 @@ function getFaceScanStatus(faceEmbedding) {
  * @returns {Promise<Object>} Created student object
  */
 async function createStudent(studentData) {
-  const { name, surname, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = studentData;
+  const { name, surname, email, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = studentData;
   
   // If universityId is not provided, get it from the creator's university
   let finalUniversityId = universityId;
@@ -76,6 +76,7 @@ async function createStudent(studentData) {
   const newStudent = await studentModel.createStudent({
     name: name,
     surname: surname,
+    email: email || null,
     university_id: finalUniversityId || null,
     student_number: studentNumber,
     department: department || null,
@@ -103,6 +104,7 @@ async function createStudent(studentData) {
       studentId: newStudent.student_id,
       name: newStudent.name,
       surname: newStudent.surname,
+      email: newStudent.email,
       universityId: newStudent.university_id,
       studentNumber: newStudent.student_number,
       department: newStudent.department,
@@ -144,6 +146,7 @@ async function getAllStudents(page = 1, limit = 10, search = '') {
         studentId: student.student_id,
         name: student.name,
         surname: student.surname,
+        email: student.email,
         universityId: student.university_id,
         studentNumber: student.student_number,
         department: student.department,
@@ -191,6 +194,7 @@ async function getStudentById(studentId) {
       studentId: student.student_id,
       name: student.name,
       surname: student.surname,
+      email: student.email,
       universityId: student.university_id,
       studentNumber: student.student_number,
       department: student.department,
@@ -220,7 +224,7 @@ async function getStudentById(studentId) {
  * @returns {Promise<Object>} Updated student object
  */
 async function updateStudent(studentId, updateData, userId, userRole) {
-  const { name, surname, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = updateData;
+  const { name, surname, email, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = updateData;
   
   // Check if student exists
   const existingStudent = await studentModel.findStudentById(studentId);
@@ -287,6 +291,7 @@ async function updateStudent(studentId, updateData, userId, userRole) {
   const updateFields = {};
   if (name !== undefined) updateFields.name = name;
   if (surname !== undefined) updateFields.surname = surname;
+  if (email !== undefined) updateFields.email = email;
   if (universityId !== undefined) updateFields.university_id = universityId;
   if (studentNumber !== undefined) updateFields.student_number = studentNumber;
   if (department !== undefined) updateFields.department = department;
@@ -314,6 +319,7 @@ async function updateStudent(studentId, updateData, userId, userRole) {
       studentId: updatedStudent.student_id,
       name: updatedStudent.name,
       surname: updatedStudent.surname,
+      email: updatedStudent.email,
       universityId: updatedStudent.university_id,
       studentNumber: updatedStudent.student_number,
       department: updatedStudent.department,
@@ -405,6 +411,7 @@ async function getStudentsByInstructor(instructorId, page = 1, limit = 10, searc
         studentId: student.student_id,
         name: student.name,
         surname: student.surname,
+        email: student.email,
         universityId: student.university_id,
         studentNumber: student.student_number,
         department: student.department,

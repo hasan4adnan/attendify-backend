@@ -21,15 +21,16 @@ const ApiError = require('../utils/ApiError');
  */
 async function createStudent(req, res, next) {
   try {
-    const { name, surname, universityId ,studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = req.body;
+    const { name, surname, email, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = req.body;
     
     // Get created_by from authenticated user if not provided
     const userId = createdBy || (req.user ? req.user.userId : null);
     
     const result = await studentService.createStudent({
       name,
-      universityId,
       surname,
+      email,
+      universityId,
       studentNumber,
       department,
       faceEmbedding,

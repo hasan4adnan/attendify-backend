@@ -48,6 +48,13 @@ const validateCreateStudent = [
     .withMessage('Surname is required')
     .isLength({ min: 2, max: 100 })
     .withMessage('Surname must be between 2 and 100 characters'),
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
   body('studentNumber')
     .trim()
     .notEmpty()
@@ -116,6 +123,14 @@ const validateUpdateStudent = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('University ID must be a positive integer'),
+  body('email')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Email cannot be empty')
+    .isEmail()
+    .withMessage('Valid email is required')
+    .normalizeEmail(),
   body('studentNumber')
     .optional()
     .trim()
