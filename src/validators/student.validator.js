@@ -32,6 +32,10 @@ const handleValidationErrors = (req, res, next) => {
  * Validates: name, surname, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds
  */
 const validateCreateStudent = [
+  body('universityId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('University ID must be a positive integer'),
   body('name')
     .trim()
     .notEmpty()
@@ -108,6 +112,10 @@ const validateUpdateStudent = [
     .withMessage('Surname cannot be empty')
     .isLength({ min: 2, max: 100 })
     .withMessage('Surname must be between 2 and 100 characters'),
+  body('universityId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('University ID must be a positive integer'),
   body('studentNumber')
     .optional()
     .trim()

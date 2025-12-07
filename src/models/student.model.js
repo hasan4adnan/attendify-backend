@@ -26,13 +26,14 @@ const db = require('../config/database');
  */
 async function createStudent(studentData) {
   const sql = `
-    INSERT INTO STUDENT (name, surname, student_number, department, face_embedding, photo_path, created_by, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+    INSERT INTO STUDENT (name, surname, university_id, student_number, department, face_embedding, photo_path, created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
   
   const params = [
     studentData.name,
     studentData.surname,
+    studentData.university_id,
     studentData.student_number,
     studentData.department || null,
     studentData.face_embedding || null,
@@ -44,6 +45,7 @@ async function createStudent(studentData) {
   
   return {
     student_id: result.insertId,
+    university_id: studentData.university_id,
     name: studentData.name,
     surname: studentData.surname,
     student_number: studentData.student_number,
@@ -60,14 +62,14 @@ async function createStudent(studentData) {
  * @param {string} studentNumber - Student number
  * @returns {Promise<Object|null>} Student object or null if not found
  */
-async function findStudentByStudentNumber(studentNumber) {
+async function findStudentByStudentNumberAndUniversityId(universityId, studentNumber) {
   const sql = `
-    SELECT student_id, name, surname, student_number, department, face_embedding, photo_path, created_by, created_at
+    SELECT student_id, name, surname, university_id, student_number, department, face_embedding, photo_path, created_by, created_at
     FROM STUDENT
-    WHERE student_number = ?
+    WHERE university_id = ? AND student_number = ?
   `;
   
-  const rows = await db.query(sql, [studentNumber]);
+  const rows = await db.query(sql, [studentNumber, universityId]);
   return rows[0] || null;
 }
 
@@ -80,7 +82,7 @@ async function findStudentByStudentNumber(studentNumber) {
  */
 async function findStudentById(studentId) {
   const sql = `
-    SELECT student_id, name, surname, student_number, department, face_embedding, photo_path, created_by, created_at
+    SELECT student_id, name, surname, university_id, student_number, department, face_embedding, photo_path, created_by, created_at
     FROM STUDENT
     WHERE student_id = ?
   `;
@@ -105,7 +107,7 @@ async function getAllStudents(page = 1, limit = 10, search = '') {
   
   let countSql = 'SELECT COUNT(*) as total FROM STUDENT';
   let sql = `
-    SELECT student_id, name, surname, student_number, department, face_embedding, photo_path, created_by, created_at
+    SELECT student_id, name, surname, university_id, student_number, department, face_embedding, photo_path, created_by, created_at
     FROM STUDENT
   `;
   const params = [];
@@ -152,7 +154,7 @@ async function getAllStudents(page = 1, limit = 10, search = '') {
  * @returns {Promise<Object>} Updated student object
  */
 async function updateStudent(studentId, updateData) {
-  const allowedFields = ['name', 'surname', 'student_number', 'department', 'face_embedding', 'photo_path', 'created_by'];
+  const allowedFields = ['name', 'surname', 'university_id', 'student_number', 'department', 'face_embedding', 'photo_path', 'created_by'];
   const updates = [];
   const values = [];
   
@@ -420,11 +422,68 @@ async function getStudentAttendanceStatus(studentId) {
   }
 }
 
+/**
+ * Get all students created by a specific instructor/user
+ * 
+ * @param {number} instructorId - Instructor/User ID who created the students
+ * @param {number} page - Page number (default: 1)
+ * @param {number} limit - Items per page (default: 10)
+ * @param {string} search - Search query (optional) - searches name, surname, student_number, department
+ * @returns {Promise<Object>} Object with students array and pagination info
+ */
+async function getStudentsByInstructor(instructorId, page = 1, limit = 10, search = '') {
+  // Ensure page and limit are integers
+  const pageNum = parseInt(page) || 1;
+  const limitNum = parseInt(limit) || 10;
+  const offset = (pageNum - 1) * limitNum;
+  
+  let countSql = 'SELECT COUNT(*) as total FROM STUDENT WHERE created_by = ?';
+  let sql = `
+    SELECT student_id, name, surname, university_id, student_number, department, face_embedding, photo_path, created_by, created_at
+    FROM STUDENT
+    WHERE created_by = ?
+  `;
+  const params = [instructorId];
+  const countParams = [instructorId];
+  
+  // Add search filter if provided
+  if (search && search.trim() !== '') {
+    const searchParam = `%${search.trim()}%`;
+    const searchCondition = ` AND (name LIKE ? OR surname LIKE ? OR student_number LIKE ? OR department LIKE ?)`;
+    sql += searchCondition;
+    countSql += searchCondition;
+    
+    params.push(searchParam, searchParam, searchParam, searchParam);
+    countParams.push(searchParam, searchParam, searchParam, searchParam);
+  }
+  
+  // Add ORDER BY, LIMIT, and OFFSET
+  sql += ` ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
+  
+  // Get total count
+  const [countResult] = await db.pool.execute(countSql, countParams);
+  const total = countResult[0].total;
+  
+  // Get students
+  const [rows] = await db.pool.execute(sql, params);
+  
+  return {
+    students: rows,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum),
+    },
+  };
+}
+
 module.exports = {
   createStudent,
-  findStudentByStudentNumber,
+  findStudentByStudentNumberAndUniversityId,
   findStudentById,
   getAllStudents,
+  getStudentsByInstructor,
   updateStudent,
   deleteStudent,
   validateCoursesExist,

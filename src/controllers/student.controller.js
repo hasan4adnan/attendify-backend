@@ -21,13 +21,14 @@ const ApiError = require('../utils/ApiError');
  */
 async function createStudent(req, res, next) {
   try {
-    const { name, surname, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = req.body;
+    const { name, surname, universityId ,studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = req.body;
     
     // Get created_by from authenticated user if not provided
     const userId = createdBy || (req.user ? req.user.userId : null);
     
     const result = await studentService.createStudent({
       name,
+      universityId,
       surname,
       studentNumber,
       department,
@@ -131,6 +132,8 @@ async function getStudentById(req, res, next) {
 async function updateStudent(req, res, next) {
   try {
     const studentId = parseInt(req.params.id);
+    const userId = req.user.userId; // Get from authenticated user
+    const userRole = req.user.role; // Get from authenticated user
     
     if (isNaN(studentId)) {
       return res.status(400).json({
@@ -139,18 +142,19 @@ async function updateStudent(req, res, next) {
       });
     }
     
-    const { name, surname, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = req.body;
+    const { name, surname, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = req.body;
     
     const result = await studentService.updateStudent(studentId, {
       name,
       surname,
+      universityId,
       studentNumber,
       department,
       faceEmbedding,
       photoPath,
       createdBy,
       courseIds,
-    });
+    }, userId, userRole);
     
     res.status(200).json({
       success: true,
@@ -164,6 +168,13 @@ async function updateStudent(req, res, next) {
         success: false,
         message: error.message,
         ...(error.missingCourseIds && { missingCourseIds: error.missingCourseIds }),
+      });
+    }
+    // Handle forbidden (403) - user doesn't own the student
+    if (error.statusCode === 403) {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
       });
     }
     // Handle duplicate student number (409)
@@ -185,6 +196,8 @@ async function updateStudent(req, res, next) {
 async function deleteStudent(req, res, next) {
   try {
     const studentId = parseInt(req.params.id);
+    const userId = req.user.userId; // Get from authenticated user
+    const userRole = req.user.role; // Get from authenticated user
     
     if (isNaN(studentId)) {
       return res.status(400).json({
@@ -193,7 +206,7 @@ async function deleteStudent(req, res, next) {
       });
     }
     
-    const result = await studentService.deleteStudent(studentId);
+    const result = await studentService.deleteStudent(studentId, userId, userRole);
     
     res.status(200).json({
       success: true,
@@ -207,6 +220,71 @@ async function deleteStudent(req, res, next) {
         message: error.message,
       });
     }
+    // Handle forbidden (403) - user doesn't own the student
+    if (error.statusCode === 403) {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    next(error);
+  }
+}
+
+/**
+ * Get students created by a specific instructor
+ * 
+ * GET /api/students/instructor/:instructorId
+ * 
+ * Query params: page, limit, search
+ */
+async function getStudentsByInstructor(req, res, next) {
+  try {
+    const instructorId = parseInt(req.params.instructorId);
+    const requestingUserId = req.user.userId;
+    const requestingUserRole = req.user.role;
+    
+    if (isNaN(instructorId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid instructor ID',
+      });
+    }
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    
+    const result = await studentService.getStudentsByInstructor(
+      instructorId,
+      page,
+      limit,
+      search,
+      requestingUserId,
+      requestingUserRole
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result.students,
+      instructor: result.instructor,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    // Handle not found (404)
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403)
+    if (error.statusCode === 403) {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
+      });
+    }
     next(error);
   }
 }
@@ -215,6 +293,7 @@ module.exports = {
   createStudent,
   getAllStudents,
   getStudentById,
+  getStudentsByInstructor,
   updateStudent,
   deleteStudent,
 };

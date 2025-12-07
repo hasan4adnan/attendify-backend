@@ -21,7 +21,7 @@ const ApiError = require('../utils/ApiError');
  */
 async function register(req, res, next) {
   try {
-    const { name, surname, email, password, confirmPassword, role } = req.body;
+    const { name, surname, email, password, confirmPassword, role, universityId } = req.body;
     
     // Check if passwords match
     if (password !== confirmPassword) {
@@ -37,6 +37,7 @@ async function register(req, res, next) {
       email,
       password,
       role: role || 'instructor',
+      universityId: universityId || null,
     });
     
     res.status(201).json({

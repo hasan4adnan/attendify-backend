@@ -38,6 +38,16 @@ async function register(userData) {
   // Hash the password
   const passwordHash = await hashUtil.hashPassword(userData.password);
   
+  // Validate university exists if provided
+  if (userData.universityId) {
+    const university = await userModel.findUniversityById(userData.universityId);
+    if (!university) {
+      const error = new Error('University not found');
+      error.statusCode = 404;
+      throw error;
+    }
+  }
+  
   // Create user in database
   const newUser = await userModel.createUser({
     name: userData.name,
@@ -45,6 +55,7 @@ async function register(userData) {
     email: userData.email,
     password_hash: passwordHash,
     role: userData.role || 'instructor',
+    university_id: userData.universityId || null,
   });
   
   // Generate and send verification code
@@ -57,6 +68,7 @@ async function register(userData) {
       surname: newUser.surname,
       email: newUser.email,
       role: newUser.role,
+      universityId: newUser.university_id || null,
     },
     verificationCode, // Return code for development (remove in production)
   };
@@ -122,6 +134,8 @@ async function login(email, password) {
       surname: user.surname,
       email: user.email,
       role: user.role,
+      universityId: user.university_id || null,
+      universityName: user.university_name || null,
     },
     token,
   };

@@ -31,10 +31,19 @@ router.post('/', authMiddleware, validateCreateStudent, studentController.create
 /**
  * GET /api/students
  * Get all students with pagination
- * Query params: page, limit
+ * Query params: page, limit, search
  * Protected route - requires authentication
  */
 router.get('/', authMiddleware, studentController.getAllStudents);
+
+/**
+ * GET /api/students/instructor/:instructorId
+ * Get students created by a specific instructor/admin
+ * Query params: page, limit, search
+ * Protected route - requires authentication
+ * Authorization: Admins can view any instructor's students, instructors can only view their own
+ */
+router.get('/instructor/:instructorId', authMiddleware, studentController.getStudentsByInstructor);
 
 /**
  * GET /api/students/:id
@@ -58,6 +67,10 @@ router.put('/:id', authMiddleware, validateUpdateStudent, studentController.upda
 router.delete('/:id', authMiddleware, studentController.deleteStudent);
 
 module.exports = router;
+
+
+
+
 
 
 

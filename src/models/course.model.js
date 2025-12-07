@@ -90,19 +90,37 @@ async function findCourseById(courseId) {
 }
 
 /**
- * Find a course by course_code
+ * Find a course by course_code and university_id
+ * Course code uniqueness is scoped by university - same code can exist for different universities
  * 
  * @param {string} courseCode - Course code
+ * @param {number|null} universityId - University ID (from instructor's university_id). If null, checks globally (backward compatibility)
  * @returns {Promise<Object|null>} Course object or null if not found
  */
-async function findCourseByCode(courseCode) {
-  const sql = `
-    SELECT course_id, course_name, course_code, description, weekly_hours, academic_year, course_category, instructor_id, room_number, semester
-    FROM COURSE
-    WHERE course_code = ?
-  `;
+async function findCourseByCode(courseCode, universityId) {
+  let sql, params;
   
-  const rows = await db.query(sql, [courseCode]);
+  if (universityId !== null && universityId !== undefined) {
+    // Check within specific university
+    sql = `
+      SELECT c.course_id, c.course_name, c.course_code, c.description, c.weekly_hours, 
+             c.academic_year, c.course_category, c.instructor_id, c.room_number, c.semester
+      FROM COURSE c
+      INNER JOIN USER u ON c.instructor_id = u.user_id
+      WHERE c.course_code = ? AND u.university_id = ?
+    `;
+    params = [courseCode, universityId];
+  } else {
+    // Backward compatibility: check globally (should ideally not be used)
+    sql = `
+      SELECT course_id, course_name, course_code, description, weekly_hours, academic_year, course_category, instructor_id, room_number, semester
+      FROM COURSE
+      WHERE course_code = ?
+    `;
+    params = [courseCode];
+  }
+  
+  const rows = await db.query(sql, params);
   return rows[0] || null;
 }
 

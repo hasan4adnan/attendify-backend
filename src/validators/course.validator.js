@@ -55,7 +55,8 @@ const validateScheduleEntry = (entry, index) => {
 /**
  * Create course request validation rules
  * 
- * Validates: courseName, courseCode, description, weeklyHours, academicYear, courseCategory, instructorId, roomNumber, semester, schedule
+ * Validates: courseName, courseCode, description, weeklyHours, academicYear, courseCategory, roomNumber, semester, schedule
+ * Note: instructorId is ignored - course is always created for the authenticated user (req.user.userId)
  */
 const validateCreateCourse = [
   body('courseName')
@@ -90,10 +91,8 @@ const validateCreateCourse = [
     .trim()
     .isLength({ max: 100 })
     .withMessage('Course category must be less than 100 characters'),
-  body('instructorId')
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage('Instructor ID must be a positive integer'),
+  // Note: instructorId is ignored - course is always created for the authenticated user
+  // Ownership is automatically set to the creator (req.user.userId)
   body('roomNumber')
     .optional()
     .trim()
@@ -142,7 +141,8 @@ const validateCreateCourse = [
 /**
  * Update course request validation rules
  * 
- * Validates: courseName, courseCode, description, weeklyHours, academicYear, courseCategory, instructorId, roomNumber, semester, schedule (all optional)
+ * Validates: courseName, courseCode, description, weeklyHours, academicYear, courseCategory, roomNumber, semester, schedule (all optional)
+ * Note: instructorId cannot be changed - ownership is determined at creation and cannot be modified
  */
 const validateUpdateCourse = [
   body('courseName')
@@ -178,10 +178,8 @@ const validateUpdateCourse = [
     .trim()
     .isLength({ max: 100 })
     .withMessage('Course category must be less than 100 characters'),
-  body('instructorId')
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage('Instructor ID must be a positive integer'),
+  // Note: instructorId cannot be changed via update - ownership is determined at creation
+  // Users can only update courses they created (ownership check in service layer)
   body('roomNumber')
     .optional()
     .trim()

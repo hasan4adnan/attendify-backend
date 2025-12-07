@@ -20,12 +20,13 @@ const db = require('../config/database');
  * @param {string} userData.email - User's email (unique)
  * @param {string} userData.password_hash - Hashed password
  * @param {string} userData.role - User role (e.g., 'admin', 'instructor')
+ * @param {number} userData.university_id - University ID (optional)
  * @returns {Promise<Object>} Created user object with user_id
  */
 async function createUser(userData) {
   const sql = `
-    INSERT INTO USER (name, surname, email, password_hash, role, created_at)
-    VALUES (?, ?, ?, ?, ?, NOW())
+    INSERT INTO USER (name, surname, email, password_hash, role, university_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, NOW())
   `;
   
   const params = [
@@ -34,6 +35,7 @@ async function createUser(userData) {
     userData.email,
     userData.password_hash,
     userData.role || 'instructor',
+    userData.university_id || null,
   ];
   
   const [result] = await db.pool.execute(sql, params);
@@ -44,6 +46,7 @@ async function createUser(userData) {
     surname: userData.surname,
     email: userData.email,
     role: userData.role || 'instructor',
+    university_id: userData.university_id || null,
   };
 }
 
@@ -55,9 +58,11 @@ async function createUser(userData) {
  */
 async function findUserByEmail(email) {
   const sql = `
-    SELECT user_id, name, surname, email, password_hash, role, created_at
-    FROM USER
-    WHERE email = ?
+    SELECT u.user_id, u.name, u.surname, u.email, u.password_hash, u.role, u.university_id, u.created_at,
+           un.university_name
+    FROM USER u
+    LEFT JOIN UNIVERSITY un ON u.university_id = un.id
+    WHERE u.email = ?
   `;
   
   const rows = await db.query(sql, [email]);
@@ -72,9 +77,11 @@ async function findUserByEmail(email) {
  */
 async function findUserById(userId) {
   const sql = `
-    SELECT user_id, name, surname, email, password_hash, role, created_at
-    FROM USER
-    WHERE user_id = ?
+    SELECT u.user_id, u.name, u.surname, u.email, u.password_hash, u.role, u.university_id, u.created_at,
+           un.university_name
+    FROM USER u
+    LEFT JOIN UNIVERSITY un ON u.university_id = un.id
+    WHERE u.user_id = ?
   `;
   
   const rows = await db.query(sql, [userId]);
@@ -82,15 +89,60 @@ async function findUserById(userId) {
 }
 
 /**
- * Update user information (for future use)
+ * Update user information
  * 
  * @param {number} userId - User ID
  * @param {Object} updateData - Fields to update
+ * @param {string} updateData.name - First name (optional)
+ * @param {string} updateData.surname - Last name (optional)
+ * @param {string} updateData.email - Email (optional)
+ * @param {string} updateData.role - Role (optional)
+ * @param {number} updateData.university_id - University ID (optional)
+ * @param {string} updateData.password_hash - Hashed password (optional)
  * @returns {Promise<Object>} Updated user object
  */
 async function updateUser(userId, updateData) {
-  // Placeholder for future implementation
-  throw new Error('updateUser not implemented');
+  const allowedFields = ['name', 'surname', 'email', 'role', 'university_id', 'password_hash'];
+  const updates = [];
+  const values = [];
+  
+  for (const field of allowedFields) {
+    if (updateData[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      values.push(updateData[field]);
+    }
+  }
+  
+  if (updates.length === 0) {
+    return findUserById(userId);
+  }
+  
+  values.push(userId);
+  const sql = `
+    UPDATE USER
+    SET ${updates.join(', ')}
+    WHERE user_id = ?
+  `;
+  
+  await db.pool.execute(sql, values);
+  return findUserById(userId);
+}
+
+/**
+ * Find a university by ID
+ * 
+ * @param {number} universityId - University ID
+ * @returns {Promise<Object|null>} University object or null if not found
+ */
+async function findUniversityById(universityId) {
+  const sql = `
+    SELECT id, university_name
+    FROM UNIVERSITY
+    WHERE id = ?
+  `;
+  
+  const rows = await db.query(sql, [universityId]);
+  return rows[0] || null;
 }
 
 module.exports = {
@@ -98,5 +150,6 @@ module.exports = {
   findUserByEmail,
   findUserById,
   updateUser,
+  findUniversityById,
 };
 

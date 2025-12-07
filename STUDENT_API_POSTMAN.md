@@ -13,7 +13,7 @@ This document provides complete Postman testing instructions for all Student API
 ## Base URL
 
 ```
-http://localhost:3000
+http://localhost:3001
 ```
 
 ---
@@ -392,7 +392,122 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
 
 ---
 
-### 4. Update Student
+### 4. Get Students by Instructor ID
+
+**Endpoint:** `GET http://localhost:3001/api/students/instructor/:instructorId`
+
+**URL Parameters:**
+- `instructorId`: Instructor/User ID (number)
+
+**Query Parameters (all optional):**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `search` (optional): Search query - searches name, surname, student number, and department
+
+**Examples:**
+- Get all students for instructor 1: `GET http://localhost:3001/api/students/instructor/1`
+- Get with pagination: `GET http://localhost:3001/api/students/instructor/1?page=2&limit=20`
+- Search students: `GET http://localhost:3001/api/students/instructor/1?search=Ahmet`
+
+**Headers:**
+```
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+```
+
+**Authorization Rules:**
+- ✅ **Admins** can view students created by **any instructor/admin ID**
+- ✅ **Instructors** can view students created by **their own ID only**
+- ❌ **Instructors** cannot view students created by **another instructor's ID** (returns 403 Forbidden)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "studentId": 1,
+      "name": "Ahmet",
+      "surname": "Yılmaz",
+      "studentNumber": "1001",
+      "department": "Computer Science",
+      "faceEmbedding": null,
+      "faceScanStatus": "Not Verified",
+      "photoPath": "/uploads/photo.jpg",
+      "createdBy": 1,
+      "createdAt": "2024-01-15T10:00:00.000Z",
+      "courses": [
+        {
+          "courseId": 1,
+          "courseName": "Introduction to Computer Science",
+          "courseCode": "CS101"
+        }
+      ]
+    },
+    {
+      "studentId": 2,
+      "name": "Mehmet",
+      "surname": "Demir",
+      "studentNumber": "1002",
+      "department": "Software Engineering",
+      "faceEmbedding": "...",
+      "faceScanStatus": "Verified",
+      "photoPath": "/uploads/photo2.jpg",
+      "createdBy": 1,
+      "createdAt": "2024-01-16T10:00:00.000Z",
+      "courses": []
+    }
+  ],
+  "instructor": {
+    "instructorId": 1,
+    "name": "John",
+    "surname": "Doe",
+    "email": "john.doe@example.com",
+    "role": "instructor"
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 2,
+    "totalPages": 1
+  }
+}
+```
+
+**Error Response (400) - Invalid Instructor ID:**
+```json
+{
+  "success": false,
+  "message": "Invalid instructor ID"
+}
+```
+
+**Error Response (403) - Permission Denied:**
+```json
+{
+  "success": false,
+  "message": "You do not have permission to view students for this instructor"
+}
+```
+
+**Error Response (404) - Instructor Not Found:**
+```json
+{
+  "success": false,
+  "message": "Instructor not found"
+}
+```
+
+**Error Response (401) - Unauthorized:**
+```json
+{
+  "success": false,
+  "message": "Unauthorized"
+}
+```
+
+---
+
+### 5. Update Student
 
 **Endpoint:** `PUT http://localhost:3000/api/students/:id`
 
@@ -491,7 +606,7 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
 
 ---
 
-### 5. Delete Student
+### 6. Delete Student
 
 **Endpoint:** `DELETE http://localhost:3000/api/students/:id`
 

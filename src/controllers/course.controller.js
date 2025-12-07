@@ -21,7 +21,9 @@ const ApiError = require('../utils/ApiError');
  */
 async function createCourse(req, res, next) {
   try {
-    const { courseName, courseCode, description, weeklyHours, academicYear, courseCategory, instructorId, roomNumber, semester, schedule, studentIds } = req.body;
+    const userId = req.user.userId; // Get from authenticated user
+    // Note: instructorId from body is ignored - course is always created for the authenticated user
+    const { courseName, courseCode, description, weeklyHours, academicYear, courseCategory, roomNumber, semester, schedule, studentIds } = req.body;
     
     const result = await courseService.createCourse({
       courseName,
@@ -30,11 +32,11 @@ async function createCourse(req, res, next) {
       weeklyHours,
       academicYear,
       courseCategory,
-      instructorId,
       roomNumber,
       semester,
       schedule: schedule || [],
       studentIds: studentIds || [],
+      createdBy: userId, // Always set to authenticated user - courses are owned by creator
     });
     
     res.status(201).json({
@@ -70,14 +72,15 @@ async function createCourse(req, res, next) {
  */
 async function getAllCourses(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
-    const instructorId = req.query.instructorId ? parseInt(req.query.instructorId) : null;
     const academicYear = req.query.academicYear || null;
     const courseCategory = req.query.courseCategory || null;
     
-    const result = await courseService.getAllCourses(page, limit, search, instructorId, academicYear, courseCategory);
+    // Users can only see their own courses, so we pass userId
+    const result = await courseService.getAllCourses(page, limit, search, null, academicYear, courseCategory, userId);
     
     res.status(200).json({
       success: true,
@@ -90,12 +93,75 @@ async function getAllCourses(req, res, next) {
 }
 
 /**
+ * Get courses by instructor ID
+ * 
+ * GET /api/courses/instructor/:instructorId
+ * 
+ * Query params: page, limit, search, academicYear, courseCategory
+ */
+async function getCoursesByInstructorId(req, res, next) {
+  try {
+    const instructorId = parseInt(req.params.instructorId);
+    const requestingUserId = req.user.userId;
+    const requestingUserRole = req.user.role;
+    
+    if (isNaN(instructorId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid instructor ID',
+      });
+    }
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const academicYear = req.query.academicYear || null;
+    const courseCategory = req.query.courseCategory || null;
+    
+    const result = await courseService.getCoursesByInstructorId(
+      instructorId,
+      page,
+      limit,
+      search,
+      academicYear,
+      courseCategory,
+      requestingUserId,
+      requestingUserRole
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result.courses,
+      instructor: result.instructor,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    // Handle not found (404)
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403)
+    if (error.statusCode === 403) {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    next(error);
+  }
+}
+
+/**
  * Get a course by ID
  * 
  * GET /api/courses/:id
  */
 async function getCourseById(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const courseId = parseInt(req.params.id);
     
     if (isNaN(courseId)) {
@@ -105,7 +171,7 @@ async function getCourseById(req, res, next) {
       });
     }
     
-    const result = await courseService.getCourseById(courseId);
+    const result = await courseService.getCourseById(courseId, userId);
     
     res.status(200).json({
       success: true,
@@ -115,6 +181,13 @@ async function getCourseById(req, res, next) {
     // Handle not found (404)
     if (error.statusCode === 404) {
       return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403) - user doesn't own the course
+    if (error.statusCode === 403) {
+      return res.status(403).json({
         success: false,
         message: error.message,
       });
@@ -132,6 +205,7 @@ async function getCourseById(req, res, next) {
  */
 async function updateCourse(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const courseId = parseInt(req.params.id);
     
     if (isNaN(courseId)) {
@@ -154,7 +228,7 @@ async function updateCourse(req, res, next) {
       roomNumber,
       semester,
       schedule,
-    });
+    }, userId);
     
     res.status(200).json({
       success: true,
@@ -165,6 +239,13 @@ async function updateCourse(req, res, next) {
     // Handle not found (404)
     if (error.statusCode === 404) {
       return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403) - user doesn't own the course
+    if (error.statusCode === 403) {
+      return res.status(403).json({
         success: false,
         message: error.message,
       });
@@ -187,6 +268,7 @@ async function updateCourse(req, res, next) {
  */
 async function deleteCourse(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const courseId = parseInt(req.params.id);
     
     if (isNaN(courseId)) {
@@ -196,7 +278,7 @@ async function deleteCourse(req, res, next) {
       });
     }
     
-    const result = await courseService.deleteCourse(courseId);
+    const result = await courseService.deleteCourse(courseId, userId);
     
     res.status(200).json({
       success: true,
@@ -223,6 +305,7 @@ async function deleteCourse(req, res, next) {
  */
 async function enrollStudents(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const courseId = parseInt(req.params.id);
     
     if (isNaN(courseId)) {
@@ -241,7 +324,7 @@ async function enrollStudents(req, res, next) {
       });
     }
     
-    const result = await courseService.enrollStudents(courseId, studentIds);
+    const result = await courseService.enrollStudents(courseId, studentIds, userId);
     
     res.status(200).json({
       success: true,
@@ -252,6 +335,13 @@ async function enrollStudents(req, res, next) {
     // Handle not found (404)
     if (error.statusCode === 404) {
       return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403) - user doesn't own the course
+    if (error.statusCode === 403) {
+      return res.status(403).json({
         success: false,
         message: error.message,
       });
@@ -269,6 +359,7 @@ async function enrollStudents(req, res, next) {
  */
 async function removeStudents(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const courseId = parseInt(req.params.id);
     
     if (isNaN(courseId)) {
@@ -287,7 +378,7 @@ async function removeStudents(req, res, next) {
       });
     }
     
-    const result = await courseService.removeStudents(courseId, studentIds);
+    const result = await courseService.removeStudents(courseId, studentIds, userId);
     
     res.status(200).json({
       success: true,
@@ -297,6 +388,13 @@ async function removeStudents(req, res, next) {
     // Handle not found (404)
     if (error.statusCode === 404) {
       return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403) - user doesn't own the course
+    if (error.statusCode === 403) {
+      return res.status(403).json({
         success: false,
         message: error.message,
       });
@@ -312,6 +410,7 @@ async function removeStudents(req, res, next) {
  */
 async function getEnrolledStudents(req, res, next) {
   try {
+    const userId = req.user.userId; // Get from authenticated user
     const courseId = parseInt(req.params.id);
     
     if (isNaN(courseId)) {
@@ -321,13 +420,27 @@ async function getEnrolledStudents(req, res, next) {
       });
     }
     
-    const students = await courseService.getEnrolledStudents(courseId);
+    const students = await courseService.getEnrolledStudents(courseId, userId);
     
     res.status(200).json({
       success: true,
       data: students,
     });
   } catch (error) {
+    // Handle not found (404)
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    // Handle forbidden (403) - user doesn't own the course
+    if (error.statusCode === 403) {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
+      });
+    }
     next(error);
   }
 }
@@ -336,6 +449,7 @@ module.exports = {
   createCourse,
   getAllCourses,
   getCourseById,
+  getCoursesByInstructorId,
   updateCourse,
   deleteCourse,
   enrollStudents,

@@ -33,11 +33,20 @@ router.post('/', authMiddleware, validateCreateCourse, courseController.createCo
 
 /**
  * GET /api/courses
- * Get all courses with pagination
- * Query params: page, limit, search, instructorId, academicYear, courseCategory
+ * Get all courses with pagination (shows only authenticated user's courses)
+ * Query params: page, limit, search, academicYear, courseCategory
  * Protected route - requires authentication
  */
 router.get('/', authMiddleware, courseController.getAllCourses);
+
+/**
+ * GET /api/courses/instructor/:instructorId
+ * Get courses by instructor/admin ID
+ * Query params: page, limit, search, academicYear, courseCategory
+ * Protected route - requires authentication
+ * Authorization: Admins can view any instructor's courses, instructors can only view their own
+ */
+router.get('/instructor/:instructorId', authMiddleware, courseController.getCoursesByInstructorId);
 
 /**
  * GET /api/courses/:id

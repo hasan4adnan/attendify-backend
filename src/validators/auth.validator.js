@@ -29,7 +29,7 @@ const handleValidationErrors = (req, res, next) => {
 /**
  * Register request validation rules
  * 
- * Validates: name, surname, email, password, confirmPassword, role
+ * Validates: name, surname, email, password, confirmPassword, role, universityId
  */
 const validateRegister = [
   body('name')
@@ -63,6 +63,10 @@ const validateRegister = [
     .optional()
     .isIn(['admin', 'instructor'])
     .withMessage('Role must be admin or instructor'),
+  body('universityId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('University ID must be a positive integer'),
   handleValidationErrors,
 ];
 

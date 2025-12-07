@@ -38,14 +38,27 @@ function getFaceScanStatus(faceEmbedding) {
  * @returns {Promise<Object>} Created student object
  */
 async function createStudent(studentData) {
-  const { name, surname, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = studentData;
+  const { name, surname, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = studentData;
   
-  // Check if student with student number already exists
-  const existingByNumber = await studentModel.findStudentByStudentNumber(studentNumber);
-  if (existingByNumber) {
-    const error = new Error('Student with this student number already exists');
-    error.statusCode = 409;
-    throw error;
+  // If universityId is not provided, get it from the creator's university
+  let finalUniversityId = universityId;
+  if (!finalUniversityId && createdBy) {
+    const userModel = require('../models/user.model');
+    const creator = await userModel.findUserById(createdBy);
+    if (creator && creator.university_id) {
+      finalUniversityId = creator.university_id;
+    }
+  }
+  
+  // Check if student with student number already exists in the same university
+  // Only check if we have a universityId (either provided or from creator)
+  if (finalUniversityId) {
+    const existingByNumberAndUniversityId = await studentModel.findStudentByStudentNumberAndUniversityId(finalUniversityId, studentNumber);
+    if (existingByNumberAndUniversityId) {
+      const error = new Error('Student with this student number in this university already exists');
+      error.statusCode = 409;
+      throw error;
+    }
   }
   
   // Validate courses exist BEFORE creating the student
@@ -63,6 +76,7 @@ async function createStudent(studentData) {
   const newStudent = await studentModel.createStudent({
     name: name,
     surname: surname,
+    university_id: finalUniversityId || null,
     student_number: studentNumber,
     department: department || null,
     face_embedding: faceEmbedding || null,
@@ -89,6 +103,7 @@ async function createStudent(studentData) {
       studentId: newStudent.student_id,
       name: newStudent.name,
       surname: newStudent.surname,
+      universityId: newStudent.university_id,
       studentNumber: newStudent.student_number,
       department: newStudent.department,
       faceEmbedding: newStudent.face_embedding,
@@ -129,6 +144,7 @@ async function getAllStudents(page = 1, limit = 10, search = '') {
         studentId: student.student_id,
         name: student.name,
         surname: student.surname,
+        universityId: student.university_id,
         studentNumber: student.student_number,
         department: student.department,
         faceEmbedding: student.face_embedding,
@@ -175,6 +191,7 @@ async function getStudentById(studentId) {
       studentId: student.student_id,
       name: student.name,
       surname: student.surname,
+      universityId: student.university_id,
       studentNumber: student.student_number,
       department: student.department,
       faceEmbedding: student.face_embedding,
@@ -198,10 +215,12 @@ async function getStudentById(studentId) {
  * @param {string} updateData.studentNumber - Student number (optional)
  * @param {string} updateData.email - Email (optional)
  * @param {Array<number>} updateData.courseIds - Course IDs (optional)
+ * @param {number} userId - Authenticated user ID (required - checks ownership)
+ * @param {string} userRole - Authenticated user role (required - for authorization)
  * @returns {Promise<Object>} Updated student object
  */
-async function updateStudent(studentId, updateData) {
-  const { name, surname, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = updateData;
+async function updateStudent(studentId, updateData, userId, userRole) {
+  const { name, surname, universityId, studentNumber, department, faceEmbedding, photoPath, createdBy, courseIds } = updateData;
   
   // Check if student exists
   const existingStudent = await studentModel.findStudentById(studentId);
@@ -211,11 +230,43 @@ async function updateStudent(studentId, updateData) {
     throw error;
   }
   
-  // Check if student number is being updated and if it conflicts
-  if (studentNumber && studentNumber !== existingStudent.student_number) {
-    const existingByNumber = await studentModel.findStudentByStudentNumber(studentNumber);
+  // Authorization check: Only admins can update any student, instructors can only update students they created
+  if (userRole !== 'admin' && existingStudent.created_by !== userId) {
+    const error = new Error('You do not have permission to update this student');
+    error.statusCode = 403;
+    throw error;
+  }
+  
+  // Prevent changing created_by (ownership) - users cannot transfer student ownership
+  if (createdBy !== undefined && createdBy !== null && createdBy !== existingStudent.created_by) {
+    if (userRole !== 'admin') {
+      const error = new Error('You cannot change the student owner. You can only update students you created.');
+      error.statusCode = 403;
+      throw error;
+    }
+    // Admins can change ownership, but we still validate it
+  }
+  
+  // Determine which university_id to use for uniqueness check
+  // If universityId is being updated, use the new one; otherwise use existing
+  const universityIdForCheck = universityId !== undefined ? universityId : existingStudent.university_id;
+  
+  // Check if student number is being updated and if it conflicts within the same university
+  // Only check if we have a universityId to check against
+  if (studentNumber && studentNumber !== existingStudent.student_number && universityIdForCheck) {
+    const existingByNumber = await studentModel.findStudentByStudentNumberAndUniversityId(universityIdForCheck, studentNumber);
     if (existingByNumber) {
-      const error = new Error('Student with this student number already exists');
+      const error = new Error('Student with this student number already exists in this university');
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+  
+  // If universityId is being changed, check if student number conflicts in the new university
+  if (universityId !== undefined && universityId !== existingStudent.university_id && studentNumber === existingStudent.student_number && universityId) {
+    const existingByNumber = await studentModel.findStudentByStudentNumberAndUniversityId(universityId, studentNumber);
+    if (existingByNumber) {
+      const error = new Error('Student with this student number already exists in the target university');
       error.statusCode = 409;
       throw error;
     }
@@ -236,6 +287,7 @@ async function updateStudent(studentId, updateData) {
   const updateFields = {};
   if (name !== undefined) updateFields.name = name;
   if (surname !== undefined) updateFields.surname = surname;
+  if (universityId !== undefined) updateFields.university_id = universityId;
   if (studentNumber !== undefined) updateFields.student_number = studentNumber;
   if (department !== undefined) updateFields.department = department;
   if (faceEmbedding !== undefined) updateFields.face_embedding = faceEmbedding;
@@ -262,6 +314,7 @@ async function updateStudent(studentId, updateData) {
       studentId: updatedStudent.student_id,
       name: updatedStudent.name,
       surname: updatedStudent.surname,
+      universityId: updatedStudent.university_id,
       studentNumber: updatedStudent.student_number,
       department: updatedStudent.department,
       faceEmbedding: updatedStudent.face_embedding,
@@ -279,14 +332,23 @@ async function updateStudent(studentId, updateData) {
  * Delete a student
  * 
  * @param {number} studentId - Student ID
+ * @param {number} userId - Authenticated user ID (required - checks ownership)
+ * @param {string} userRole - Authenticated user role (required - for authorization)
  * @returns {Promise<Object>} Success message
  */
-async function deleteStudent(studentId) {
+async function deleteStudent(studentId, userId, userRole) {
   const student = await studentModel.findStudentById(studentId);
   
   if (!student) {
     const error = new Error('Student not found');
     error.statusCode = 404;
+    throw error;
+  }
+  
+  // Authorization check: Only admins can delete any student, instructors can only delete students they created
+  if (userRole !== 'admin' && student.created_by !== userId) {
+    const error = new Error('You do not have permission to delete this student');
+    error.statusCode = 403;
     throw error;
   }
   
@@ -301,10 +363,83 @@ async function deleteStudent(studentId) {
   return { message: 'Student deleted successfully' };
 }
 
+/**
+ * Get students created by a specific instructor
+ * 
+ * @param {number} instructorId - Instructor/User ID
+ * @param {number} page - Page number (default: 1)
+ * @param {number} limit - Items per page (default: 10)
+ * @param {string} search - Search query (optional)
+ * @param {number} requestingUserId - Authenticated user ID (for authorization check)
+ * @param {string} requestingUserRole - Authenticated user role (for authorization check)
+ * @returns {Promise<Object>} Object with students array and pagination info
+ */
+async function getStudentsByInstructor(instructorId, page = 1, limit = 10, search = '', requestingUserId = null, requestingUserRole = null) {
+  // Authorization check: Only admins can view students by any instructor
+  // Instructors can only view students they created
+  if (requestingUserRole !== 'admin' && requestingUserId !== instructorId) {
+    const error = new Error('You do not have permission to view students for this instructor');
+    error.statusCode = 403;
+    throw error;
+  }
+  
+  // Validate instructor exists
+  const userModel = require('../models/user.model');
+  const instructor = await userModel.findUserById(instructorId);
+  if (!instructor) {
+    const error = new Error('Instructor not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  
+  // Get students by instructor ID
+  const result = await studentModel.getStudentsByInstructor(instructorId, page, limit, search);
+  
+  // Enrich students with courses and face scan status
+  const studentsWithDetails = await Promise.all(
+    result.students.map(async (student) => {
+      const courses = await studentModel.getStudentCourses(student.student_id);
+      const faceScanStatus = getFaceScanStatus(student.face_embedding);
+      
+      return {
+        studentId: student.student_id,
+        name: student.name,
+        surname: student.surname,
+        universityId: student.university_id,
+        studentNumber: student.student_number,
+        department: student.department,
+        faceEmbedding: student.face_embedding,
+        faceScanStatus: faceScanStatus,
+        photoPath: student.photo_path,
+        createdBy: student.created_by,
+        createdAt: student.created_at,
+        courses: courses.map(course => ({
+          courseId: course.course_id,
+          courseName: course.course_name,
+          courseCode: course.course_code,
+        })),
+      };
+    })
+  );
+  
+  return {
+    students: studentsWithDetails,
+    pagination: result.pagination,
+    instructor: {
+      instructorId: instructor.user_id,
+      name: instructor.name,
+      surname: instructor.surname,
+      email: instructor.email,
+      role: instructor.role,
+    },
+  };
+}
+
 module.exports = {
   createStudent,
   getAllStudents,
   getStudentById,
+  getStudentsByInstructor,
   updateStudent,
   deleteStudent,
 };
